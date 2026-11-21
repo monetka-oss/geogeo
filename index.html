@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Грузинский язык</title>
+<style>
+  :root{--bg:#f5f5f5;--fg:#111;--card:#fff;--accent:#0f172a;--muted:#666;--border:#ddd;--ok:#16a34a;--bad:#dc2626}
+  .dark{--bg:#0b0b0e;--fg:#eee;--card:#16161a;--accent:#cbd5e1;--muted:#94a3b8;--border:#2a2a2e;--ok:#4ade80;--bad:#f87171}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Georgian",sans-serif;background:var(--bg);color:var(--fg);min-height:100vh}
+  .bar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border)}
+  .bar h1{font-size:1.25rem;font-weight:700}
+  .bar .actions button{margin-left:8px;padding:6px 12px;font-size:0.9rem;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer}
+  #app{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:calc(100vh - 56px)}
+  .btn{padding:10px 16px;background:var(--card);border:1px solid var(--border);color:var(--fg);border-radius:10px;cursor:pointer;font-size:1rem}
+  .card{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--card);cursor:pointer}
+  .card.flipped .face-main{display:none}
+  .card.flipped .face-back{display:block}
+  .face-main .geo{font-size:1.4rem;font-weight:700;line-height:1.4}
+  .face-main .tr{font-size:0.9rem;color:var(--muted);font-style:italic;margin:4px 0}
+  .face-main .ru{margin-top:8px;font-size:1.05rem}
+  .face-main .ctx{font-size:0.85rem;color:var(--muted);margin-top:8px}
+  .face-back{display:none}
+  .face-back .geo2{font-size:1.2rem;font-weight:700}
+  .face-back .ru2{font-size:1rem;margin-top:4px}
+  .face-back .tr2{font-size:0.9rem;color:var(--muted);font-style:italic;margin-top:4px}
+  input{width:100%;padding:12px;font-size:1rem;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--fg)}
+  .row{display:flex;gap:8px;margin-top:12px}
+  .row button{flex:1;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:1rem}
+  .feedback{margin-top:8px;padding:8px;border-radius:8px;font-weight:700;display:none}
+  .fb.ok{display:block;background:rgba(22,163,74,0.15);color:var(--ok)}
+  .fb.bad{display:block;background:rgba(220,38,38,0.15);color:var(--bad)}
+  .back{margin-bottom:8px}
+  .empty{color:var(--muted);text-align:center;padding:24px}
+  .search-bar{margin-bottom:12px}
+  .result{padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--card);margin-bottom:8px;cursor:pointer}
+  .result .geo{font-weight:700;font-size:1.1rem}
+  .result .ru{margin-top:4px}
+  .chip{font-size:0.75rem;color:var(--muted);margin-left:6px}
+  @media (max-width:600px){.bar h1{font-size:1.1rem}}
+</style>
+</head>
+<body>
+  <header class="bar">
+    <h1>🇬🇪 Грузинский</h1>
+    <div class="actions">
+      <button id="btnSearch">🔍 Поиск</button>
+      <button id="btnTest">✍️ Тест</button>
+      <button id="btnTheme">🌓</button>
+    </div>
+  </header>
+  <div id="app"></div>
+  <script>
+    const FILES = [
+      'Шпаргалка_по_грузинскому_сленгу_и_разговорной_речи.md',
+      'Шпаргалка_по_грузинскому_сленгу_и_грамматике_Часть_2_.md',
+      'Уличный_грузинский_Респекты_Глаголы_Зал_и_Рынок.md'
+    ];
+    let chapters = [];
+    let state = { mode:'chapters', ci:null, li:null, query:'', testIdx:null, card:null };
+    const GEO_RE = /[Ⴀ-ჿ]/;
+
+    function clean(s){return (s||'').replace(/\*\*/g,'').replace(/\*/g,'').replace(/<br\s*\/?>/gi,' ').trim();}
+    function isGeo(s){return GEO_RE.test(s||'');}
+
+    function norm(o){
+      const pick=(re)=>{for(const k in o){if(re.test(k.toLowerCase()))return clean(o[k]);}return '';};
+      const cat=pick(/категор/);const tr=pick(/транскрип/);const ru=pick(/перевод|смысл|значени|meaning/);const ctx=pick(/контекст|пример|ситуац|как|использ|суть|между|форма|живой/);
+      let geo='';
+      for(const k in o){const v=clean(o[k]);if(isGeo(v)){geo=v;break;}}
+      if(!geo){for(const k in o){const v=clean(o[k]);if(!/категор|транскрип|перевод|смысл|значени|контекст|пример|ситуац|как|использ|суть|между|форма|живой/.test(k.toLowerCase())&&!isGeo(v)){geo=v;break;}}
+      return {georgian:geo,transliteration:tr,russian:ru,context:ctx,category:cat};
+    }
+
+    function parseMd(text){
+      const lines=text.split('\n');let ch=null,lvl=null,headers=null;
+      for(const line of lines){
+        const t=line.trim();
+        if(t.startsWith('# ')&&!t.startsWith('## ')){ch={title:t.slice(2).trim(),levels:[]};chapters.push(ch);lvl=null;headers=null;continue;}
+        if(t.startsWith('## ')){if(!ch){ch={title:'',levels:[]};chapters.push(ch);}lvl={title:t.slice(3).trim(),cards:[]};ch.levels.push(lvl);headers=null;continue;}
+        if(!t.startsWith('|')){headers=null;continue;}
+        const raw=t.split('|');raw.shift();if(raw.length&&raw[raw.length-1].trim()==='')raw.pop();
+        const cells=raw.map(s=>s.trim());
+        if(cells.every(c=>/^:?-+:?$/.test(c)))continue;
+        if(headers===null){headers=cells;continue;}
+        const o={};headers.forEach((h,i)=>o[h]=cells[i]||'');
+        const card=norm(o);
+        if(!ch){ch={title:'',levels:[]};chapters.push(ch);}
+        const first=clean(cells[0]||'');
+        const isCat=!isGeo(first);
+        if(!lvl){lvl={title:isCat?card.category:'Общее',cards:[]};ch.levels.push(lvl);}
+        if(isCat&&card.category&&card.category!==lvl.title){lvl={title:card.category,cards:[]};ch.levels.push(lvl);}
+        lvl.cards.push(card);
+      }
+    }
+
+    async function load(){
+      for(const f of FILES){try{const t=await(await fetch(f)).text();parseMd(t);}catch(e){console.warn('skip',f,e);}}
+      render();
+    }
+    function allCards(){const a=[];for(const c of chapters)for(const l of c.levels)for(const cd of l.cards)a.push({card:cd,ch:c,lvl:l});return a;}
+    function goBack(){
+      if(state.mode==='cards')state.mode='levels';
+      else if(state.mode==='card')state.mode='cards';
+      else if(state.mode==='levels'){state.mode='chapters';state.ci=null;}
+      else if(state.mode==='test'||state.mode==='search'){state.mode='chapters';state.ci=null;}
+      render();
+    }
+    function cardHtml(cd){
+      return `<div class="face-main"><div class="geo">${cd.georgian}</div>${cd.transliteration?`<div class="tr">${cd.transliteration}</div>`:''}<div class="ru">${cd.russian}</div>${cd.context?`<div class="ctx">${cd.context}</div>`:''}</div><div class="face-back"><div class="ru2">${cd.russian}</div>${cd.transliteration?`<div class="tr2">${cd.transliteration}</div>`:''}<div class="geo2">${cd.georgian}</div>${cd.context?`<div class="ctx">${cd.context}</div>`:''}</div>`;
+    }
+    function render(){
+      const app=document.getElementById('app');app.innerHTML='';
+      if(state.mode==='chapters'){
+        chapters.forEach((c,i)=>{const el=document.createElement('div');el.className='card';
+          const total=c.levels.reduce((s,l)=>s+l.cards.length,0);
+          el.innerHTML=`<div class="geo">${c.title}</div><div class="tr">${c.levels.length} уровней · ${total} карточек</div>`;
+          el.onclick=()=>{state.ci=i;state.mode='levels';render();};app.appendChild(el);});
+      }else if(state.mode==='levels'){
+        app.insertAdjacentHTML('afterbegin','<div class="back"><button class="btn" onclick="goBack()">← Главы</button></div>');
+        chapters[state.ci].levels.forEach((l,i)=>{const el=document.createElement('div');el.className='card';
+          el.innerHTML=`<div class="geo">${l.title}</div><div class="tr">${l.cards.length} карточек</div>`;
+          el.onclick=()=>{state.li=i;state.mode='cards';render();};app.appendChild(el);});
+      }else if(state.mode==='cards'){
+        app.insertAdjacentHTML('afterbegin','<div class="back"><button class="btn" onclick="goBack()">← Уровни</button></div>');
+        chapters[state.ci].levels[state.li].cards.forEach(cd=>{const el=document.createElement('div');el.className='card';
+          el.innerHTML=cardHtml(cd);el.onclick=()=>el.classList.toggle('flipped');app.appendChild(el);});
+      }else if(state.mode==='card'){
+        app.insertAdjacentHTML('afterbegin','<div class="back"><button class="btn" onclick="goBack()">← Назад</button></div>');
+        const el=document.createElement('div');el.className='card';
+        el.innerHTML=cardHtml(state.card);el.onclick=()=>el.classList.toggle('flipped');app.appendChild(el);
+      }else if(state.mode==='search'){
+        app.insertAdjacentHTML('afterbegin','<div class="back"><button class="btn" onclick="goBack()">← Главная</button></div><div class="search-bar"><input id="sq" placeholder="Поиск по фразам…"></div>');
+        const q=state.query.toLowerCase();const res=[];
+        chapters.forEach(c=>c.levels.forEach(l=>l.cards.forEach(cd=>{if((cd.georgian+cd.russian+cd.context+cd.transliteration).toLowerCase().includes(q))res.push({cd,c,l});})));
+        app.insertAdjacentHTML('beforeend',q?`<div class="empty">${res.length} результатов</div>`:`<div class="empty">Введите запрос</div>`);
+        res.forEach(r=>{const el=document.createElement('div');el.className='result';
+          el.innerHTML=`<div class="geo">${r.cd.georgian}</div><div class="ru">${r.cd.russian}</div><div class="chip">${r.c.title} › ${r.l.title}</div>`;
+          el.onclick=()=>{state.card=r.cd;state.mode='card';render();};app.appendChild(el);});
+        const sq=document.getElementById('sq');sq.value=state.query||'';
+        sq.oninput=e=>{state.query=e.target.value;render();};
+      }else if(state.mode==='test'){
+        const all=allCards();
+        if(state.testIdx===null||state.testIdx>=all.length)state.testIdx=Math.floor(Math.random()*all.length);
+        const cd=all[state.testIdx].card;
+        app.insertAdjacentHTML('afterbegin','<div class="back"><button class="btn" onclick="goBack()">← Главная</button></div>');
+        app.insertAdjacentHTML('beforeend',`<div class="card"><div class="geo">${cd.russian}</div><div class="tr">Напишите на грузинском</div></div>
+          <div class="search-bar"><input id="ta" placeholder="Грузинский перевод" autofocus></div>
+          <div class="row"><button class="btn" onclick="checkTest()">Проверить</button><button class="btn" onclick="nextTest()">Следующий</button></div>
+          <div class="feedback fb ok" id="fbOk">Верно!</div><div class="feedback fb bad" id="fbBad">Неверно</div>`);
+      }
+    }
+    function checkTest(){const cd=allCards()[state.testIdx].card;const ok=(document.getElementById('ta').value||'').toLowerCase().trim()===cd.georgian.toLowerCase().trim();document.getElementById('fbOk').style.display=ok?'block':'none';document.getElementById('fbBad').style.display=ok?'none':'block';}
+    function nextTest(){state.testIdx=null;render();}
+    document.getElementById('btnSearch').onclick=()=>{state.mode='search';render();};
+    document.getElementById('btnTest').onclick=()=>{state.mode='test';render();};
+    document.getElementById('btnTheme').onclick=()=>{document.body.classList.toggle('dark');};
+    if(typeof module!=='undefined'&&module.exports){module.exports={clean,isGeo,norm,parseMd,allCards,chapters:()=>chapters};}
+    else{if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');load();}
+  </script>
+</body>
+</html>
